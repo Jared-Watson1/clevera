@@ -56,17 +56,26 @@ const Register: React.FC = () => {
 
       const user = userCredential.user;
 
-      // Update Firebase profile
+      // Update Firebase profile with displayName
       await updateProfile(user, {
         displayName: username,
       });
 
-      // Save user data to Firestore
+      // Save user data to Firestore under "users/{uid}"
       await setDoc(doc(db, "users", user.uid), {
         uid: user.uid,
         username,
         email,
         createdAt: new Date(),
+      });
+
+      // Create userProfile/profile document
+      await setDoc(doc(db, "users", user.uid, "userProfile", "profile"), {
+        id: user.uid,
+        name: username,
+        level: 1,
+        experience: 0,
+        starredSets: [],
       });
 
       // Show success toast

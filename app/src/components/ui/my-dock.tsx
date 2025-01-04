@@ -38,25 +38,138 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 
+import { useTopics } from "@/context/TopicsContext";
+
 // Emojis for random selection
-const emojis = ["😊", "🎉", "📚", "🚀", "🌟", "🔥", "💡", "⚡"];
+const academicEmojis = [
+  "📚",
+  "📖",
+  "📝",
+  "📎",
+  "📐",
+  "📏",
+  "✏️",
+  "🖊️",
+  "🔬",
+  "🧪",
+  "🧫",
+  "🧬",
+  "⚗️",
+  "🔭",
+  "📡",
+  "🗂️",
+  "📊",
+  "📈",
+  "📉",
+  "🗃️",
+  "📅",
+  "📋",
+  "💡",
+  "🧠",
+  "🎓",
+  "🏫",
+  "🏛️",
+  "📜",
+  "📔",
+  "🔖",
+];
+
+const faceEmojis = [
+  "😊",
+  "😎",
+  "🤓",
+  "😃",
+  "😁",
+  "😂",
+  "🥳",
+  "😇",
+  "😉",
+  "😌",
+  "🤔",
+  "🙃",
+  "😜",
+  "😋",
+  "🤩",
+  "😏",
+  "😶‍🌫️",
+  "😕",
+  "😲",
+  "🥺",
+];
+
+const allEmojis = [...academicEmojis, ...faceEmojis]; // Combine both categories
 
 const DockComponent = () => {
-  const [showCard, setShowCard] = useState(false); // State to show/hide the card
-  const emoji = emojis[Math.floor(Math.random() * emojis.length)]; // Default emoji
-  const [topicName, setTopicName] = useState(""); // Topic name
-  const [description, setDescription] = useState(""); // Topic description
+  const { topics, addTopic, addSet } = useTopics();
 
-  // Open the card when "New Topic" is clicked
-  const handleNewTopicClick = () => {
-    setShowCard(true);
-  };
+  // State for topics
+  const [showCard, setShowCard] = useState(false);
+  const [selectedEmoji, setSelectedEmoji] = useState("🗂️");
+  const [description, setDescription] = useState("");
+  const [topicName, setTopicName] = useState("");
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
-  // Close the card
+  // State for sets
+  const [showSetPopup, setShowSetPopup] = useState(false);
+  const [setName, setSetName] = useState("");
+  const [selectedTopic, setSelectedTopic] = useState<string | undefined>(
+    undefined
+  );
+
+  // Open Set Popup
+  const handleNewTopicClick = () => setShowCard(true);
+
   const handleCloseCard = () => {
     setShowCard(false);
     setTopicName("");
     setDescription("");
+    setShowEmojiPicker(false);
+  };
+
+  const handleSaveTopic = () => {
+    if (topicName.trim() !== "") {
+      addTopic({
+        id: `${Date.now()}`,
+        name: topicName,
+        emoji: selectedEmoji,
+        description,
+        sets: [],
+      });
+      handleCloseCard();
+    }
+  };
+
+  const handleEmojiSelect = (emoji: string) => {
+    setSelectedEmoji(emoji);
+    setShowEmojiPicker(false);
+  };
+
+  // Handlers for Set
+  const handleNewSetClick = () => setShowSetPopup(true);
+
+  const handleCloseSetPopup = () => {
+    setShowSetPopup(false);
+    setSetName("");
+    setSelectedTopic(undefined);
+  };
+
+  const handleSaveSet = () => {
+    if (setName.trim() !== "") {
+      if (selectedTopic) {
+        // Add to a specific topic
+        addSet(setName, selectedTopic);
+      } else {
+        // Add as a root-level set
+        addTopic({
+          id: `${Date.now()}`,
+          name: setName,
+          emoji: "📝", // Flashcard emoji for sets
+          description: "",
+          sets: [],
+        });
+      }
+      handleCloseSetPopup(); // Close popup
+    }
   };
 
   return (
@@ -143,14 +256,13 @@ const DockComponent = () => {
                       <span className="ml-auto text-xs text-gray-500">⌘N</span>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleNewSetClick}>
                       New Set
                       <span className="ml-auto text-xs text-gray-500">⌘⇧N</span>
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </DockIcon>
-
               {/* Bell Button */}
               <DockIcon size={48} magnification={55} distance={80}>
                 <Tooltip>
@@ -192,16 +304,48 @@ const DockComponent = () => {
       {/* Popup Card */}
       {showCard && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <Card className="w-[400px] shadow-lg bg-white">
+          <Card className="w-[700px] max-h-[90vh] overflow-y-auto shadow-lg bg-white p-6">
             <CardHeader>
               <CardTitle>Create New Topic</CardTitle>
               <CardDescription>
                 Provide details for the new topic.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center space-x-2">
-                <span className="text-2xl">{emoji}</span>
+            <CardContent className="space-y-6">
+              <div className="flex items-center space-x-4 relative">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div
+                        className="flex items-center space-x-1 cursor-pointer"
+                        onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                      >
+                        <span className="text-4xl">{selectedEmoji}</span>
+                        <PencilIcon className="w-4 h-4 text-gray-500" />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Change Emoji</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
+                {showEmojiPicker && (
+                  <div
+                    className="absolute left-[-310px] top-0 bg-white shadow-lg p-4 rounded-lg grid grid-cols-6 gap-4 overflow-y-auto"
+                    style={{ height: "300px" }} // Constrain height
+                  >
+                    {allEmojis.map((emoji) => (
+                      <button
+                        key={emoji}
+                        onClick={() => handleEmojiSelect(emoji)}
+                        className="text-2xl hover:scale-110 transition-transform"
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <Input
                   value={topicName}
                   onChange={(e) => setTopicName(e.target.value)}
@@ -218,7 +362,45 @@ const DockComponent = () => {
               <Button variant="ghost" onClick={handleCloseCard}>
                 Cancel
               </Button>
-              <Button>Save</Button>
+              <Button onClick={handleSaveTopic}>Save</Button>
+            </CardFooter>
+          </Card>
+        </div>
+      )}
+      {showSetPopup && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <Card className="w-[500px] max-h-[90vh] overflow-y-auto shadow-lg bg-white p-6">
+            <CardHeader>
+              <CardTitle>Create New Set</CardTitle>
+              <CardDescription>Choose a topic for this set.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Set Name */}
+              <Input
+                value={setName}
+                onChange={(e) => setSetName(e.target.value)}
+                placeholder="Set Name"
+              />
+
+              {/* Topic Dropdown */}
+              <select
+                value={selectedTopic || ""}
+                onChange={(e) => setSelectedTopic(e.target.value || undefined)}
+                className="w-full p-2 border rounded-lg"
+              >
+                <option value="">Root (No Topic)</option>
+                {topics.map((topic) => (
+                  <option key={topic.id} value={topic.id}>
+                    {topic.emoji} {topic.name}
+                  </option>
+                ))}
+              </select>
+            </CardContent>
+            <CardFooter className="flex justify-end space-x-2">
+              <Button variant="ghost" onClick={handleCloseSetPopup}>
+                Cancel
+              </Button>
+              <Button onClick={handleSaveSet}>Save</Button>
             </CardFooter>
           </Card>
         </div>
